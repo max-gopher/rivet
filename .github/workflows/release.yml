@@ -33,10 +33,6 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      - name: Install mold
-        run: |
-          sudo apt-get install -y mold
-
       - name: Build frontend
         run: |
           cd crates/gui
@@ -124,4 +120,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rivet-macos-${{ github.ref_name }}
-          path: crates/gui/target/release/bundle/**/*
+          path: |
+            crates/gui/target/release/bundle/dmg/*.dmg
+            crates/gui/target/release/bundle/macos/*.app
