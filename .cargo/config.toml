@@ -1,0 +1,21 @@
+[build]
+rustflags = [
+    "-D", "warnings",
+    "-C", "target-cpu=native",
+]
+
+# Исправляем конфигурацию для mold
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+    "-C", "link-arg=-fuse-ld=mold",
+    "-C", "link-arg=-Wno-unused-command-line-argument",
+]
+
+[alias]
+cl = "run -p rivet-cli --"
+run = "run -p rivet-cli -- run"
+validate = "run -p rivet-cli -- validate"
+test = "test --workspace"
+build-release = "build --release --workspace"
+doc = "doc --workspace --no-deps"

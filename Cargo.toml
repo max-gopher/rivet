@@ -1,0 +1,77 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/cli",
+    "crates/gui"
+]
+
+# 👇 Добавляем resolver для 2024 edition
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Your Name <email@example.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourname/rivet_rust"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Сериализация
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+serde_yml = "0.0.12"
+yaml-rust2 = "0.5"
+serde_with = "3.0"
+
+# Ошибки
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Асинхронность
+tokio = { version = "1.0", features = ["full", "tracing", "rt-multi-thread"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "stream", "cookies"] }
+
+# Парсинг - используем свою реализацию!
+# jsonpath = "0.4"          # ← 0.4, не 0.5!
+pest = "2.7"
+
+# Шаблонизация
+handlebars = "6.0"
+
+# Утилиты
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+regex = "1.10"
+
+# CLI
+clap = { version = "4.5", features = ["derive", "color", "help", "suggestions"] }
+colored = "3.0"
+indicatif = { version = "0.17", features = ["tokio"] }
+console = "0.15"
+comfy-table = "7.0"
+
+# Тестирование
+test-case = "3.3"
+mockall = "0.13"
+pretty_assertions = "1.4"
+
+# Логирование
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# GUI
+tauri = { version = "2.0", features = [
+    "native-tls",
+    "tray-icon",
+    "webview-data-url",
+] }
+tauri-build = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-shell = "2.0"

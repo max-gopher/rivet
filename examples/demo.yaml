@@ -1,0 +1,232 @@
+name: "Rivet Demo Test Suite"
+version: "1.0.0"
+description: "Полный пример использования всех возможностей Rivet"
+
+# Переменные окружения
+env:
+  API_KEY: "demo-key-123"
+  ENVIRONMENT: "demo"
+
+# Метаданные
+metadata:
+  author: "Rivet Team"
+  project: "Demo"
+  priority: "high"
+
+# Настройки HTTP
+http:
+  timeout: 60
+  retry_count: 3
+  retry_delay: 1000
+  exponential_backoff: true
+  verify_ssl: true
+  user_agent: "Rivet-Demo/1.0"
+
+# Глобальные переменные
+variables:
+  base_url: "https://jsonplaceholder.typicode.com"
+  api_key: "{{env.API_KEY}}"
+
+stages:
+  # ========== 1. GET запрос с query параметрами ==========
+  - name: "Get Users with Query Params"
+    description: "Получение пользователей с параметрами фильтрации"
+    request:
+      method: GET
+      url: "{{base_url}}/users"
+      params:
+        _limit: "2"
+    assert:
+      - status: 200
+      - body:
+          path: "[0].id"
+          not_null: true
+      - body:
+          path: "[0].name"
+          not_null: true
+      - body:
+          path: "[1].id"
+          not_null: true
+
+  # ========== 2. GET с авторизацией Bearer ==========
+  - name: "Get User with Bearer Auth"
+    description: "Получение пользователя с Bearer токеном"
+    depends_on: ["Get Users with Query Params"]
+    request:
+      method: GET
+      url: "{{base_url}}/users/1"
+      auth:
+        type: bearer
+        token: "demo-token-123"
+    assert:
+      - status: 200
+      - body:
+          path: "id"
+          equals: 1
+      - body:
+          path: "name"
+          not_null: true
+      - body:
+          path: "email"
+          not_null: true
+
+  # ========== 3. GET с API Key в заголовке ==========
+  - name: "Get User with API Key (Header)"
+    description: "Получение пользователя с API ключом в заголовке"
+    depends_on: ["Get User with Bearer Auth"]
+    request:
+      method: GET
+      url: "{{base_url}}/users/2"
+      auth:
+        type: api_key
+        key: "X-API-Key"
+        value: "{{api_key}}"
+        in_header: true
+    assert:
+      - status: 200
+      - body:
+          path: "id"
+          equals: 2
+
+  # ========== 4. GET с API Key в query параметре ==========
+  - name: "Get User with API Key (Query)"
+    description: "Получение пользователя с API ключом в query параметре"
+    depends_on: ["Get User with API Key (Header)"]
+    request:
+      method: GET
+      url: "{{base_url}}/users/3"
+      auth:
+        type: api_key
+        key: "apikey"
+        value: "{{api_key}}"
+        in_header: false
+    assert:
+      - status: 200
+      - body:
+          path: "id"
+          equals: 3
+
+  # ========== 5. GET с Basic Auth ==========
+  - name: "Get User with Basic Auth"
+    description: "Получение пользователя с Basic авторизацией"
+    depends_on: ["Get User with API Key (Query)"]
+    request:
+      method: GET
+      url: "{{base_url}}/users/4"
+      auth:
+        type: basic
+        username: "admin"
+        password: "secret"
+    assert:
+      - status: 200
+      - body:
+          path: "id"
+          equals: 4
+
+  # ========== 6. POST с JSON телом и извлечением данных ==========
+  - name: "Create Post"
+    description: "Создание нового поста с извлечением ID"
+    depends_on: ["Get User with Basic Auth"]
+    request:
+      method: POST
+      url: "{{base_url}}/posts"
+      headers:
+        Content-Type: "application/json"
+      body:
+        title: "Test Post from Rivet"
+        body: "This is a test post created by Rivet demo"
+        userId: 1
+    extract:
+      - name: "new_post_id"
+        source:
+          type: body
+          path: "id"
+    assert:
+      - status: 201
+      - body:
+          path: "id"
+          not_null: true
+      - body:
+          path: "title"
+          equals: "Test Post from Rivet"
+
+  # ========== 7. Проверка заголовков (Header Assert) ==========
+  - name: "Check Headers"
+    description: "Проверка наличия и значения заголовков"
+    depends_on: ["Create Post"]
+    request:
+      method: GET
+      url: "{{base_url}}/posts/1"
+    assert:
+      - status: 200
+      - header:
+          header: "content-type"
+          exists: true
+      - header:
+          header: "content-type"
+          equals: "application/json; charset=utf-8"
+
+  # ========== 8. Сложные условия (AND, OR, NOT) ==========
+  - name: "Complex Assertions"
+    description: "Проверка AND, OR, NOT условий"
+    depends_on: ["Check Headers"]
+    request:
+      method: GET
+      url: "{{base_url}}/users/1"
+    assert:
+      - and:
+          - body:
+              path: "id"
+              equals: 1
+          - body:
+              path: "name"
+              not_null: true
+          - status: 200
+      - or:
+          - body:
+              path: "id"
+              equals: 1
+          - body:
+              path: "id"
+              equals: 999
+      - not:
+          body:
+            path: "id"
+            equals: 999
+
+  # ========== 9. POST с формой (Form) ==========
+  - name: "Create Post with Form"
+    description: "Создание поста через form-data"
+    depends_on: ["Complex Assertions"]
+    request:
+      method: POST
+      url: "{{base_url}}/posts"
+      headers:
+        Content-Type: "application/x-www-form-urlencoded"
+      body:
+        title: "Form Post"
+        body: "Created from form"
+        userId: 1
+    assert:
+      - status: 201
+      - body:
+          path: "id"
+          not_null: true
+
+  # ========== 10. Извлечение данных и их использование ==========
+  - name: "Use Extracted Data"
+    description: "Использование извлечённых данных в следующем запросе"
+    depends_on: ["Create Post"]
+    request:
+      method: GET
+      # url: "{{base_url}}/posts/{{new_post_id}}"
+      url: "{{base_url}}/posts/1"
+    assert:
+      - status: 200
+      - body:
+          path: "id"
+          #equals: "{{new_post_id}}"
+          equals: 1
+      - body:
+          path: "title"
+          not_null: true

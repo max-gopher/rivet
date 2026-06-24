@@ -1,0 +1,37 @@
+[package]
+name = "rivet-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "REST API testing CLI tool"
+
+[[bin]]
+name = "rivet-cli"
+path = "src/main.rs"
+
+[dependencies]
+# Наше ядро
+rivet-core = { path = "../core" }
+
+# CLI
+clap = { workspace = true }
+colored = { workspace = true }
+indicatif = { workspace = true }
+console = { workspace = true }
+comfy-table = { workspace = true }
+
+# Логирование
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+
+# Утилиты
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.0"

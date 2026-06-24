@@ -1,0 +1,54 @@
+[package]
+name = "rivet-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "rivet_core"
+path = "src/lib.rs"
+
+[dependencies]
+# Основные зависимости
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+serde_yml.workspace = true
+yaml-rust2 = { workspace = true }
+serde_with = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+
+# HTTP
+reqwest = { workspace = true }
+
+# Парсинг - используем свою реализацию!
+# jsonpath = { workspace = true }
+
+# Шаблонизация
+handlebars = { workspace = true }
+
+# Утилиты
+chrono = { workspace = true }
+uuid = { workspace = true }
+regex = { workspace = true }
+
+# Логирование
+tracing = { workspace = true }
+temp-env = "0.3.6"
+base64 = "0.22.1"
+
+[dev-dependencies]
+test-case = { workspace = true }
+mockall = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = "3.0"
+temp-env = "0.3"
+
+[features]
+http3 = []
