@@ -33,6 +33,10 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
+      - name: Install mold
+        run: |
+          sudo apt-get install -y mold
+
       - name: Build frontend
         run: |
           cd crates/gui
