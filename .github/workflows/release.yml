@@ -6,22 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-
   build-linux:
-    needs: create-release
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +19,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Linux dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -54,17 +39,20 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Tauri app (Linux)
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: crates/gui
           tagName: ${{ github.ref_name }}
-          releaseId: ${{ needs.create-release.outputs.upload_url }}
-          releaseDraftName: "Release ${{ github.ref_name }}"
-          releaseBody: "See the assets to download and install this version."
+          releaseId: none
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rivet-linux-${{ github.ref_name }}
+          path: crates/gui/target/release/bundle/**/*
 
   build-windows:
-    needs: create-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,17 +71,20 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Tauri app (Windows)
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: crates/gui
           tagName: ${{ github.ref_name }}
-          releaseId: ${{ needs.create-release.outputs.upload_url }}
-          releaseDraftName: "Release ${{ github.ref_name }}"
-          releaseBody: "See the assets to download and install this version."
+          releaseId: none
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rivet-windows-${{ github.ref_name }}
+          path: crates/gui/target/release/bundle/**/*
 
   build-macos:
-    needs: create-release
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,11 +103,15 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Tauri app (macOS)
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: crates/gui
           tagName: ${{ github.ref_name }}
-          releaseId: ${{ needs.create-release.outputs.upload_url }}
-          releaseDraftName: "Release ${{ github.ref_name }}"
-          releaseBody: "See the assets to download and install this version."
+          releaseId: none
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rivet-macos-${{ github.ref_name }}
+          path: crates/gui/target/release/bundle/**/*
