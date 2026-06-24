@@ -28,6 +28,7 @@ jobs:
             curl \
             wget \
             file \
+            mold \
             libssl-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
@@ -40,13 +41,9 @@ jobs:
           npm run build
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: crates/gui
-          tagName: ${{ github.ref_name }}
-          releaseId: none
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd crates/gui
+          cargo tauri build --release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -74,13 +71,9 @@ jobs:
           npm run build
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: crates/gui
-          tagName: ${{ github.ref_name }}
-          releaseId: none
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd crates/gui
+          cargo tauri build --release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -108,13 +101,9 @@ jobs:
           npm run build
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: crates/gui
-          tagName: ${{ github.ref_name }}
-          releaseId: none
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd crates/gui
+          cargo tauri build --release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
