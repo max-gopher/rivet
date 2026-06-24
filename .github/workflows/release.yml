@@ -52,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rivet-linux
-          path: crates/gui/target/release/bundle/**/*
+          path: target/release/bundle/**/*
 
   build-windows:
     runs-on: windows-latest
@@ -85,7 +85,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rivet-windows
-          path: crates/gui/target/release/bundle/**/*
+          path: target/release/bundle/**/*
 
   build-macos:
     runs-on: macos-latest
@@ -119,8 +119,8 @@ jobs:
         with:
           name: rivet-macos
           path: |
-            crates/gui/target/release/bundle/dmg/*.dmg
-            crates/gui/target/release/bundle/macos/*.app
+            target/release/bundle/dmg/*.dmg
+            target/release/bundle/macos/*.app
 
   create-release:
     needs: [build-linux, build-windows, build-macos]
