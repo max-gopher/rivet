@@ -33,6 +33,10 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
+      - name: Install mold (optional linker)
+        run: |
+          sudo apt-get install -y mold || true
+
       - name: Build frontend
         run: |
           cd crates/gui
@@ -50,68 +54,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rivet-linux-${{ github.ref_name }}
-          path: crates/gui/target/release/bundle/**/*
-
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build frontend
-        run: |
-          cd crates/gui
-          npm install
-          npm run build
-
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: crates/gui
-          tagName: ${{ github.ref_name }}
-          releaseId: none
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rivet-windows-${{ github.ref_name }}
-          path: crates/gui/target/release/bundle/**/*
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build frontend
-        run: |
-          cd crates/gui
-          npm install
-          npm run build
-
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: crates/gui
-          tagName: ${{ github.ref_name }}
-          releaseId: none
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rivet-macos-${{ github.ref_name }}
           path: crates/gui/target/release/bundle/**/*

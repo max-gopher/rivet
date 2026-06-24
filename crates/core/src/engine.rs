@@ -14,7 +14,7 @@ use tracing::{info, warn};
 use crate::parsers::config::*;
 use crate::parsers::config::ConfigValidator;
 use crate::parsers::response::ResponseExtractor;
-use crate::http::{HttpClient, HttpRequest, RequestBuilder};
+use crate::http::{HttpClient, RequestBuilder};
 use crate::context::{TestContext, StageResult, RequestInfo, ResponseInfo};
 use crate::error::{CoreError, CoreResult};
 

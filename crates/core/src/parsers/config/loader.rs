@@ -3,7 +3,6 @@
 //! Читает YAML файлы и преобразует их в структуры TestSuite.
 //! Поддерживает подстановку переменных окружения.
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use yaml_rust2::{YamlLoader, Yaml};
@@ -93,10 +92,22 @@ impl ConfigLoader {
         }
 
         // Берем первый документ
-        let yaml = &docs[0];
+        let mut yaml = docs[0].clone();
+
+        // Подставляем переменные окружения, если есть префикс
+        if let Some(prefix) = &self.env_prefix {
+            // Собираем переменные с префиксом
+            let env_vars: std::collections::HashMap<String, String> = std::env::vars()
+                .filter(|(key, _)| key.starts_with(prefix))
+                .collect();
+
+            if !env_vars.is_empty() {
+                Self::substitute_yaml_value(&mut yaml, &env_vars);
+            }
+        }
 
         // Преобразуем Yaml в TestSuite
-        let suite = Self::yaml_to_testsuite(yaml)?;
+        let suite = Self::yaml_to_testsuite(&yaml)?;
 
         // Подстановка переменных окружения (пока пропускаем, чтобы не усложнять)
         Ok(suite)
@@ -596,99 +607,45 @@ impl ConfigLoader {
     /// Подставляет переменные окружения в конфиг
     ///
     /// Ищет значения вида {{env.VAR_NAME}} и заменяет их на реальные значения
-    fn substitute_env_vars(&self, suite: &mut TestSuite, prefix: &str) {
-        // Собираем переменные окружения с нужным префиксом
+    pub fn substitute_env_vars(&self, yaml: &mut Yaml) {
         let env_vars: std::collections::HashMap<String, String> = std::env::vars()
-            .filter(|(key, _)| key.starts_with(prefix))
-            .map(|(key, value)| (key, value))
             .collect();
 
-        // Если есть env vars, подставляем их
-        if !env_vars.is_empty() {
-            // Подставляем в переменные
-            for (key, value) in &mut suite.variables {
-                if let Some(substituted) = self.substitute_value(value, &env_vars) {
-                    *value = substituted;
-                }
-            }
-
-            // Подставляем в URL и заголовки каждого запроса
-            for stage in &mut suite.stages {
-                // URL
-                if let Some(substituted) = self.substitute_in_string(&stage.request.url, &env_vars) {
-                    stage.request.url = substituted;
-                }
-
-                // Заголовки
-                for (_key, value) in &mut stage.request.headers {
-                    if let Some(substituted) = self.substitute_in_string(value, &env_vars) {
-                        *value = substituted;
-                    }
-                }
-
-                // Параметры
-                for (_, value) in &mut stage.request.params {
-                    if let Some(substituted) = self.substitute_in_string(value, &env_vars) {
-                        *value = substituted;
-                    }
-                }
-            }
+        if env_vars.is_empty() {
+            return;
         }
+
+        Self::substitute_yaml_value(yaml, &env_vars);
     }
 
-    /// Рекурсивная подстановка
-    fn substitute_value(
-        &self,
-        value: &serde_json::Value,
-        env_vars: &HashMap<String, String>,
-    ) -> Option<serde_json::Value> {
-        match value {
-            serde_json::Value::String(s) => {
-                if let Some(substituted) = self.substitute_in_string(s, env_vars) {
-                    Some(serde_json::Value::String(substituted))
-                } else {
-                    None
+    fn substitute_yaml_value(yaml: &mut Yaml, env_vars: &std::collections::HashMap<String, String>) {
+        match yaml {
+            Yaml::String(s) => {
+                // Проверяем, содержит ли строка шаблон {{env.VAR_NAME}}
+                if let Some(new_value) = Self::substitute_in_string(s, env_vars) {
+                    *yaml = Yaml::String(new_value);
                 }
             }
-            serde_json::Value::Object(obj) => {
-                let mut new_obj = serde_json::Map::new();
-                let mut changed = false;
-                for (k, v) in obj {
-                    if let Some(substituted) = self.substitute_value(v, env_vars) {
-                        new_obj.insert(k.clone(), substituted);
-                        changed = true;
-                    } else {
-                        new_obj.insert(k.clone(), v.clone());
-                    }
+            Yaml::Hash(hash) => {
+                for (_, value) in hash {
+                    Self::substitute_yaml_value(value, env_vars);
                 }
-                if changed { Some(serde_json::Value::Object(new_obj)) } else { None }
             }
-            serde_json::Value::Array(arr) => {
-                let mut new_arr = Vec::new();
-                let mut changed = false;
+            Yaml::Array(arr) => {
                 for item in arr {
-                    if let Some(substituted) = self.substitute_value(item, env_vars) {
-                        new_arr.push(substituted);
-                        changed = true;
-                    } else {
-                        new_arr.push(item.clone());
-                    }
+                    Self::substitute_yaml_value(item, env_vars);
                 }
-                if changed { Some(serde_json::Value::Array(new_arr)) } else { None }
             }
-            _ => None, // Числа, булевы, null - не обрабатываем
+            _ => {}
         }
     }
 
     /// Заменяет шаблоны вида {{env.VAR_NAME}} в строке
-    fn substitute_in_string(
-        &self,
-        input: &str,
-        env_vars: &std::collections::HashMap<String, String>,
-    ) -> Option<String> {
-        let mut result = input.to_string();
+    pub fn substitute_in_string(s: &str, env_vars: &std::collections::HashMap<String, String>) -> Option<String> {
+        let mut result = s.to_string();
         let mut changed = false;
 
+        // Ищем все шаблоны вида {{env.VAR_NAME}}
         for (key, value) in env_vars {
             let pattern = format!("{{{{env.{}}}}}", key);
             if result.contains(&pattern) {
