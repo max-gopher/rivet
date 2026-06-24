@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Build frontend
+        run: |
+          cd crates/gui
+          npm install
+          npm run build
+
+      - name: Build Tauri app (Linux)
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: crates/gui
+          tagName: ${{ github.ref_name }}
+          releaseId: ${{ needs.create-release.outputs.upload_url }}
+          releaseDraftName: "Release ${{ github.ref_name }}"
+          releaseBody: "See the assets to download and install this version."
+
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build frontend
+        run: |
+          cd crates/gui
+          npm install
+          npm run build
+
+      - name: Build Tauri app (Windows)
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: crates/gui
+          tagName: ${{ github.ref_name }}
+          releaseId: ${{ needs.create-release.outputs.upload_url }}
+          releaseDraftName: "Release ${{ github.ref_name }}"
+          releaseBody: "See the assets to download and install this version."
+
+  build-macos:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build frontend
+        run: |
+          cd crates/gui
+          npm install
+          npm run build
+
+      - name: Build Tauri app (macOS)
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: crates/gui
+          tagName: ${{ github.ref_name }}
+          releaseId: ${{ needs.create-release.outputs.upload_url }}
+          releaseDraftName: "Release ${{ github.ref_name }}"
+          releaseBody: "See the assets to download and install this version."
