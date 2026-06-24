@@ -33,10 +33,6 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      - name: Install mold (optional linker)
-        run: |
-          sudo apt-get install -y mold || true
-
       - name: Build frontend
         run: |
           cd crates/gui
@@ -49,6 +45,8 @@ jobs:
           projectPath: crates/gui
           tagName: ${{ github.ref_name }}
           releaseId: none
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -81,6 +79,8 @@ jobs:
           projectPath: crates/gui
           tagName: ${{ github.ref_name }}
           releaseId: none
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -113,6 +113,8 @@ jobs:
           projectPath: crates/gui
           tagName: ${{ github.ref_name }}
           releaseId: none
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
