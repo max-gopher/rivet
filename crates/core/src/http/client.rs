@@ -48,11 +48,6 @@ impl HttpClient {
         HttpClient { client, config }
     }
 
-    /// Создает клиент с настройками по умолчанию
-    pub fn default() -> Self {
-        Self::new(HttpConfig::default())
-    }
-
     /// Создает клиент из опционального конфига
     pub fn from_optional_config(config: Option<HttpConfig>) -> Self {
         match config {
@@ -245,7 +240,6 @@ fn headers_to_hashmap(headers: &HeaderMap) -> HashMap<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::http::RequestBuilder;
     use super::*;
 
     #[test]

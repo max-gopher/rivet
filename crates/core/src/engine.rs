@@ -191,7 +191,6 @@ impl TestEngine {
     ) -> CoreResult<()> {
         match assert {
             Assert::Status(status_assert) => {
-
                 if status != status_assert.status {
                     return Err(CoreError::ValidationError(
                         format!("Expected status {}, got {}", status_assert.status, status)
@@ -199,36 +198,29 @@ impl TestEngine {
                 }
             }
             Assert::Body(body_assert) => {
-                // Всегда используем JsonPathParser
                 let value = crate::parsers::response::JsonPathParser::extract_first(body, &body_assert.path)?;
 
                 if let Some(value) = value {
-                    if let Some(expected) = &body_assert.equals {
-                        if value != expected {
-                            return Err(CoreError::ValidationError(
-                                format!("Expected {} to equal {:?}, got {:?}",
-                                        body_assert.path, expected, value)
-                            ));
-                        }
+                    if let Some(expected) = &body_assert.equals && value != expected {
+                        return Err(CoreError::ValidationError(
+                            format!("Expected {} to equal {:?}, got {:?}",
+                                    body_assert.path, expected, value)
+                        ));
                     }
 
-                    if let Some(not_null) = body_assert.not_null {
-                        if not_null && value.is_null() {
-                            return Err(CoreError::ValidationError(
-                                format!("Expected {} to not be null", body_assert.path)
-                            ));
-                        }
+                    if let Some(not_null) = body_assert.not_null && not_null && value.is_null() {
+                        return Err(CoreError::ValidationError(
+                            format!("Expected {} to not be null", body_assert.path)
+                        ));
                     }
 
-                    if let Some(regex) = &body_assert.regex {
-                        if let Some(str_value) = value.as_str() {
-                            let re = regex::Regex::new(regex)
-                                .map_err(|e| CoreError::ValidationError(e.to_string()))?;
-                            if !re.is_match(str_value) {
-                                return Err(CoreError::ValidationError(
-                                    format!("Value '{}' doesn't match regex '{}'", str_value, regex)
-                                ));
-                            }
+                    if let Some(regex) = &body_assert.regex && let Some(str_value) = value.as_str() {
+                        let re = regex::Regex::new(regex)
+                            .map_err(|e| CoreError::ValidationError(e.to_string()))?;
+                        if !re.is_match(str_value) {
+                            return Err(CoreError::ValidationError(
+                                format!("Value '{}' doesn't match regex '{}'", str_value, regex)
+                            ));
                         }
                     }
                 } else {
@@ -239,13 +231,11 @@ impl TestEngine {
             }
             Assert::Header(header_assert) => {
                 if let Some(value) = headers.get(&header_assert.header) {
-                    if let Some(expected) = &header_assert.equals {
-                        if value != expected {
-                            return Err(CoreError::ValidationError(
-                                format!("Expected header {} to equal {}, got {}",
-                                        header_assert.header, expected, value)
-                            ));
-                        }
+                    if let Some(expected) = &header_assert.equals && value != expected {
+                        return Err(CoreError::ValidationError(
+                            format!("Expected header {} to equal {}, got {}",
+                                    header_assert.header, expected, value)
+                        ));
                     }
                 } else if let Some(true) = header_assert.exists {
                     return Err(CoreError::ValidationError(
@@ -274,13 +264,10 @@ impl TestEngine {
                 }
             }
             Assert::Not(assert) => {
-                match self.validate_assertion(assert, body, status, headers) {
-                    Ok(()) => {
-                        return Err(CoreError::ValidationError(
-                            "Assertion should have failed but passed".to_string()
-                        ));
-                    }
-                    Err(_) => {} // Ожидаемая ошибка - все хорошо
+                if let Ok(()) = self.validate_assertion(assert, body, status, headers) {
+                    return Err(CoreError::ValidationError(
+                        "Assertion should have failed but passed".to_string()
+                    ));
                 }
             }
             Assert::Custom(_) => {

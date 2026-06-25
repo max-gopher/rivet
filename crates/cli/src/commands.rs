@@ -5,7 +5,7 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
 use colored::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rivet_core::{TestEngine, parsers::config::{load_and_validate_from_file, ConfigLoader}};
 use rivet_core::templates::{TemplateManager, TemplateInfo, TemplateSource, TemplateCategory};
@@ -198,7 +198,7 @@ async fn run_command(
     }
 
     if !all_passed {
-        std::process::exit(1);
+        return Err(anyhow::anyhow!("Some tests failed"))
     }
 
     Ok(())
@@ -239,7 +239,7 @@ fn validate_command(config_path: &str, output: &ConsoleOutput) -> Result<()> {
         }
         Err(e) => {
             output.print_error(&format!("❌ Invalid configuration: {}", e));
-            std::process::exit(1);
+            Err(e.into())
         }
     }
 }
@@ -312,7 +312,7 @@ async fn template_list_command(
         };
 
         grouped.entry(category.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(template);
     }
 
@@ -386,7 +386,7 @@ async fn template_generate_command(
         }
     } else {
         output.print_error(&format!("❌ Template '{}' not found", template_name));
-        std::process::exit(1);
+        return Err(anyhow::anyhow!("Template '{}' not found", template_name))
     };
 
     if let Some(path) = result.saved_path {
@@ -436,7 +436,7 @@ async fn template_add_repo_command(url: &str, output: &ConsoleOutput) -> Result<
         }
         Err(e) => {
             output.print_error(&format!("❌ Failed to access repository: {}", e));
-            std::process::exit(1);
+            return Err(e.into());
         }
     }
 
@@ -444,16 +444,16 @@ async fn template_add_repo_command(url: &str, output: &ConsoleOutput) -> Result<
 }
 
 /// Добавляет директорию с кастомными шаблонами
-fn template_add_dir_command(dir: &PathBuf, output: &ConsoleOutput) -> Result<()> {
+fn template_add_dir_command(dir: &Path, output: &ConsoleOutput) -> Result<()> {
     if !dir.exists() {
         output.print_error(&format!("Directory does not exist: {}", dir.display()));
-        std::process::exit(1);
+        return Err(anyhow::anyhow!("Directory does not exist"));
     }
 
     output.print_success(&format!("✅ Added template directory: {}", dir.display()));
     output.print_info("💡 To use templates from this directory:");
-    output.print_info(&format!("   rivet template list"));
-    output.print_info(&format!("   rivet template generate --template <name> -o test.yaml"));
+    output.print_info("   rivet template list");
+    output.print_info("   rivet template generate --template <name> -o test.yaml");
 
     Ok(())
 }

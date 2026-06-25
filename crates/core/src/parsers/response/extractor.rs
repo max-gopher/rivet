@@ -172,10 +172,8 @@ impl ResponseExtractor {
 
         for cookie in cookies {
             let trimmed = cookie.trim();
-            if let Some((key, value)) = trimmed.split_once('=') {
-                if key.trim() == name {
-                    return Ok(Value::String(value.trim().to_string()));
-                }
+            if let Some((key, value)) = trimmed.split_once('=') && key.trim() == name {
+                return Ok(Value::String(value.trim().to_string()));
             }
         }
 
@@ -205,10 +203,8 @@ impl ResponseExtractor {
             ))?;
 
         // Ищем первое совпадение
-        if let Some(captures) = re.captures(&body_str) {
-            if let Some(matched) = captures.get(0) {
-                return Ok(Value::String(matched.as_str().to_string()));
-            }
+        if let Some(captures) = re.captures(&body_str) && let Some(matched) = captures.get(0) {
+            return Ok(Value::String(matched.as_str().to_string()));
         }
 
         Err(CoreError::ParseError(

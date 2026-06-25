@@ -81,7 +81,7 @@ impl RequestBuilder {
                         .map_err(|e| CoreError::TemplateError(e.to_string()))?;
                     let rendered = self.template_engine.render(&json_str, variables)?;
                     let parsed = serde_json::from_str(&rendered)
-                        .map_err(|e| CoreError::JsonError(e))?;
+                        .map_err(CoreError::JsonError)?;
                     (Some(parsed), None)
                 }
                 RequestBody::Text(text) => {

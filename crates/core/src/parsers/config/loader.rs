@@ -186,40 +186,28 @@ impl ConfigLoader {
         if let Some(http) = yaml["http"].as_hash() {
             let mut http_config = HttpConfig::default();
 
-            if let Some(timeout) = http.get(&Yaml::from_str("timeout")) {
-                if let Some(t) = timeout.as_i64() {
-                    http_config.timeout = t as u64;
-                }
+            if let Some(timeout) = http.get(&Yaml::from_str("timeout")) && let Some(t) = timeout.as_i64() {
+                http_config.timeout = t as u64;
             }
 
-            if let Some(retry_count) = http.get(&Yaml::from_str("retry_count")) {
-                if let Some(r) = retry_count.as_i64() {
-                    http_config.retry_count = r as u32;
-                }
+            if let Some(retry_count) = http.get(&Yaml::from_str("retry_count")) && let Some(r) = retry_count.as_i64() {
+                http_config.retry_count = r as u32;
             }
 
-            if let Some(retry_delay) = http.get(&Yaml::from_str("retry_delay")) {
-                if let Some(r) = retry_delay.as_i64() {
-                    http_config.retry_delay = r as u64;
-                }
+            if let Some(retry_delay) = http.get(&Yaml::from_str("retry_delay")) && let Some(r) = retry_delay.as_i64() {
+                http_config.retry_delay = r as u64;
             }
 
-            if let Some(exponential_backoff) = http.get(&Yaml::from_str("exponential_backoff")) {
-                if let Some(eb) = exponential_backoff.as_bool() {
-                    http_config.exponential_backoff = eb;
-                }
+            if let Some(exponential_backoff) = http.get(&Yaml::from_str("exponential_backoff")) && let Some(eb) = exponential_backoff.as_bool() {
+                http_config.exponential_backoff = eb;
             }
 
-            if let Some(verify_ssl) = http.get(&Yaml::from_str("verify_ssl")) {
-                if let Some(vs) = verify_ssl.as_bool() {
-                    http_config.verify_ssl = vs;
-                }
+            if let Some(verify_ssl) = http.get(&Yaml::from_str("verify_ssl")) && let Some(vs) = verify_ssl.as_bool() {
+                http_config.verify_ssl = vs;
             }
 
-            if let Some(user_agent) = http.get(&Yaml::from_str("user_agent")) {
-                if let Some(ua) = user_agent.as_str() {
-                    http_config.user_agent = ua.to_string();
-                }
+            if let Some(user_agent) = http.get(&Yaml::from_str("user_agent")) && let Some(ua) = user_agent.as_str() {
+                http_config.user_agent = ua.to_string();
             }
 
             suite.http = Some(http_config);
@@ -311,38 +299,32 @@ impl ConfigLoader {
         // Парсим request
         if let Some(request) = yaml["request"].as_hash() {
             // Парсим method
-            if let Some(method) = request.get(&Yaml::from_str("method")) {
-                if let Some(method_str) = method.as_str() {
-                    stage.request.method = match method_str.to_lowercase().as_str() {
-                        "get" => HttpMethod::Get,
-                        "post" => HttpMethod::Post,
-                        "put" => HttpMethod::Put,
-                        "delete" => HttpMethod::Delete,
-                        "patch" => HttpMethod::Patch,
-                        "head" => HttpMethod::Head,
-                        "options" => HttpMethod::Options,
-                        "trace" => HttpMethod::Trace,
-                        _ => return Err(CoreError::ConfigError(
-                            format!("Unknown HTTP method: {}", method_str)
-                        )),
-                    };
-                }
+            if let Some(method) = request.get(&Yaml::from_str("method")) && let Some(method_str) = method.as_str() {
+                stage.request.method = match method_str.to_lowercase().as_str() {
+                    "get" => HttpMethod::Get,
+                    "post" => HttpMethod::Post,
+                    "put" => HttpMethod::Put,
+                    "delete" => HttpMethod::Delete,
+                    "patch" => HttpMethod::Patch,
+                    "head" => HttpMethod::Head,
+                    "options" => HttpMethod::Options,
+                    "trace" => HttpMethod::Trace,
+                    _ => return Err(CoreError::ConfigError(
+                        format!("Unknown HTTP method: {}", method_str)
+                    )),
+                };
             }
 
             // Парсим url
-            if let Some(url) = request.get(&Yaml::from_str("url")) {
-                if let Some(url_str) = url.as_str() {
-                    stage.request.url = url_str.to_string();
-                }
+            if let Some(url) = request.get(&Yaml::from_str("url")) && let Some(url_str) = url.as_str() {
+                stage.request.url = url_str.to_string();
             }
 
             // Парсим headers
-            if let Some(headers) = request.get(&Yaml::from_str("headers")) {
-                if let Some(headers_hash) = headers.as_hash() {
-                    for (key, value) in headers_hash {
-                        if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
-                            stage.request.headers.insert(key_str.to_string(), value_str.to_string());
-                        }
+            if let Some(headers) = request.get(&Yaml::from_str("headers")) && let Some(headers_hash) = headers.as_hash() {
+                for (key, value) in headers_hash {
+                    if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
+                        stage.request.headers.insert(key_str.to_string(), value_str.to_string());
                     }
                 }
             }
@@ -355,63 +337,59 @@ impl ConfigLoader {
             }
 
             // Парсим params
-            if let Some(params) = request.get(&Yaml::from_str("params")) {
-                if let Some(params_hash) = params.as_hash() {
-                    for (key, value) in params_hash {
-                        if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
-                            stage.request.params.insert(key_str.to_string(), value_str.to_string());
-                        }
+            if let Some(params) = request.get(&Yaml::from_str("params")) && let Some(params_hash) = params.as_hash() {
+                for (key, value) in params_hash {
+                    if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
+                        stage.request.params.insert(key_str.to_string(), value_str.to_string());
                     }
                 }
             }
 
             // Парсим auth
-            if let Some(auth) = request.get(&Yaml::from_str("auth")) {
-                if let Some(auth_hash) = auth.as_hash() {
-                    let auth_type = auth_hash.get(&Yaml::from_str("type"))
-                        .and_then(|t| t.as_str())
-                        .ok_or_else(|| CoreError::ConfigError("Auth missing 'type'".to_string()))?;
+            if let Some(auth) = request.get(&Yaml::from_str("auth")) && let Some(auth_hash) = auth.as_hash() {
+                let auth_type = auth_hash.get(&Yaml::from_str("type"))
+                    .and_then(|t| t.as_str())
+                    .ok_or_else(|| CoreError::ConfigError("Auth missing 'type'".to_string()))?;
 
-                    match auth_type {
-                        "bearer" => {
-                            let token = auth_hash.get(&Yaml::from_str("token"))
-                                .and_then(|t| t.as_str())
-                                .ok_or_else(|| CoreError::ConfigError("Bearer auth missing 'token'".to_string()))?
-                                .to_string();
-                            stage.request.auth = Some(Auth::Bearer { token });
-                        }
-                        "basic" => {
-                            let username = auth_hash.get(&Yaml::from_str("username"))
-                                .and_then(|u| u.as_str())
-                                .ok_or_else(|| CoreError::ConfigError("Basic auth missing 'username'".to_string()))?
-                                .to_string();
-                            let password = auth_hash.get(&Yaml::from_str("password"))
-                                .and_then(|p| p.as_str())
-                                .ok_or_else(|| CoreError::ConfigError("Basic auth missing 'password'".to_string()))?
-                                .to_string();
-                            stage.request.auth = Some(Auth::Basic { username, password });
-                        }
-                        "api_key" => {
-                            let key = auth_hash.get(&Yaml::from_str("key"))
-                                .and_then(|k| k.as_str())
-                                .ok_or_else(|| CoreError::ConfigError("API key auth missing 'key'".to_string()))?
-                                .to_string();
-                            let value = auth_hash.get(&Yaml::from_str("value"))
-                                .and_then(|v| v.as_str())
-                                .ok_or_else(|| CoreError::ConfigError("API key auth missing 'value'".to_string()))?
-                                .to_string();
-                            let in_header = auth_hash.get(&Yaml::from_str("in_header"))
-                                .and_then(|i| i.as_bool())
-                                .unwrap_or(true);
-                            let prefix = auth_hash.get(&Yaml::from_str("prefix"))
-                                .and_then(|p| p.as_str())
-                                .map(|s| s.to_string());
-                            stage.request.auth = Some(Auth::ApiKey { key, value, in_header, prefix });
-                        }
-                        _ => return Err(CoreError::ConfigError(
-                            format!("Unknown auth type: {}", auth_type)
-                        )),
+                match auth_type {
+                    "bearer" => {
+                        let token = auth_hash.get(&Yaml::from_str("token"))
+                            .and_then(|t| t.as_str())
+                            .ok_or_else(|| CoreError::ConfigError("Bearer auth missing 'token'".to_string()))?
+                            .to_string();
+                        stage.request.auth = Some(Auth::Bearer { token });
                     }
+                    "basic" => {
+                        let username = auth_hash.get(&Yaml::from_str("username"))
+                            .and_then(|u| u.as_str())
+                            .ok_or_else(|| CoreError::ConfigError("Basic auth missing 'username'".to_string()))?
+                            .to_string();
+                        let password = auth_hash.get(&Yaml::from_str("password"))
+                            .and_then(|p| p.as_str())
+                            .ok_or_else(|| CoreError::ConfigError("Basic auth missing 'password'".to_string()))?
+                            .to_string();
+                        stage.request.auth = Some(Auth::Basic { username, password });
+                    }
+                    "api_key" => {
+                        let key = auth_hash.get(&Yaml::from_str("key"))
+                            .and_then(|k| k.as_str())
+                            .ok_or_else(|| CoreError::ConfigError("API key auth missing 'key'".to_string()))?
+                            .to_string();
+                        let value = auth_hash.get(&Yaml::from_str("value"))
+                            .and_then(|v| v.as_str())
+                            .ok_or_else(|| CoreError::ConfigError("API key auth missing 'value'".to_string()))?
+                            .to_string();
+                        let in_header = auth_hash.get(&Yaml::from_str("in_header"))
+                            .and_then(|i| i.as_bool())
+                            .unwrap_or(true);
+                        let prefix = auth_hash.get(&Yaml::from_str("prefix"))
+                            .and_then(|p| p.as_str())
+                            .map(|s| s.to_string());
+                        stage.request.auth = Some(Auth::ApiKey { key, value, in_header, prefix });
+                    }
+                    _ => return Err(CoreError::ConfigError(
+                        format!("Unknown auth type: {}", auth_type)
+                    )),
                 }
             }
         }
@@ -522,16 +500,12 @@ impl ConfigLoader {
             let mut not_null = None;
             let mut equals = None;
 
-            if let Some(p) = body.get(&Yaml::from_str("path")) {
-                if let Some(p_str) = p.as_str() {
-                    path = p_str.to_string();
-                }
+            if let Some(p) = body.get(&Yaml::from_str("path")) && let Some(p_str) = p.as_str() {
+                path = p_str.to_string();
             }
 
-            if let Some(nn) = body.get(&Yaml::from_str("not_null")) {
-                if let Some(nn_bool) = nn.as_bool() {
-                    not_null = Some(nn_bool);
-                }
+            if let Some(nn) = body.get(&Yaml::from_str("not_null")) && let Some(nn_bool) = nn.as_bool() {
+                not_null = Some(nn_bool);
             }
 
             if let Some(eq) = body.get(&Yaml::from_str("equals")) {

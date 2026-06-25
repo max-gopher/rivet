@@ -57,12 +57,12 @@ impl TemplateEngine {
         variables: &HashMap<String, Value>,
     ) -> CoreResult<Value> {
         let json_str = serde_json::to_string(value)
-            .map_err(|e| CoreError::JsonError(e))?;
+            .map_err(CoreError::JsonError)?;
 
         let rendered = self.render(&json_str, variables)?;
 
         serde_json::from_str(&rendered)
-            .map_err(|e| CoreError::JsonError(e))
+            .map_err(CoreError::JsonError)
     }
 
     /// Рендерит URL с подстановкой переменных

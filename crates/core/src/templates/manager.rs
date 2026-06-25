@@ -27,10 +27,8 @@ impl TemplateManager {
     }
 
     fn add_user_dir(&mut self) {
-        if let Some(user_dir) = get_user_template_dir() {
-            if user_dir.exists() {
-                self.template_dirs.push(user_dir);
-            }
+        if let Some(user_dir) = get_user_template_dir() && user_dir.exists() {
+            self.template_dirs.push(user_dir);
         }
     }
 
@@ -96,11 +94,9 @@ impl TemplateManager {
                 ))?;
                 let path = entry.path();
 
-                if path.extension().and_then(|e| e.to_str()) == Some("yaml") {
-                    if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
-                        let info = self.parse_template_info(name, &path)?;
-                        templates.push(info);
-                    }
+                if path.extension().and_then(|e| e.to_str()) == Some("yaml") && let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
+                    let info = self.parse_template_info(name, &path)?;
+                    templates.push(info);
                 }
             }
         }

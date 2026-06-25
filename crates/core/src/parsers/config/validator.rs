@@ -184,20 +184,13 @@ impl ConfigValidator {
                 }
 
                 // Проверяем бэкофф стратегию
-                if let Some(backoff) = &retry.backoff {
-                    match backoff {
-                        BackoffStrategy::Exponential { factor } => {
-                            if *factor <= 1.0 {
-                                return Err(CoreError::ValidationError(
-                                    format!(
-                                        "Stage '{}' has invalid exponential factor: {} (must be > 1.0)",
-                                        stage.name, factor
-                                    )
-                                ));
-                            }
-                        }
-                        _ => {} // Fixed и Linear всегда корректны
-                    }
+                if let Some(BackoffStrategy::Exponential { factor }) = &retry.backoff && *factor <= 1.0 {
+                    return Err(CoreError::ValidationError(
+                        format!(
+                            "Stage '{}' has invalid exponential factor: {} (must be > 1.0)",
+                            stage.name, factor
+                        )
+                    ));
                 }
             }
         }

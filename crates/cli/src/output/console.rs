@@ -122,7 +122,7 @@ impl ConsoleOutput {
             if let Some(err) = error {
                 println!("     {}", err.red());
             }
-            if self.verbose && !error.is_some() {
+            if self.verbose && error.is_none() {
                 println!("     {}", format_duration(duration).dimmed());
             }
         }

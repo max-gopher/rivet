@@ -222,16 +222,20 @@ crates/gui/gen/
 
 ## Рекомендуемый порядок исправлений
 
-1. Починить `load_config` в GUI, чтобы он сохранял suite в `AppState`.
-2. Убрать `std::process::exit` из command-функций CLI и починить CLI-тесты.
-3. Привести HTTP method parsing к user-friendly case-insensitive режиму.
-4. Согласовать Tauri/Vite build output (`dist` vs `src-tauri/dist`) и добавить `beforeBuildCommand`.
-5. Расширить `.gitignore`, убрать `node_modules` и generated artifacts из git.
-6. Сделать clippy green с `cargo clippy --workspace -- -D warnings`.
-7. Заменить внешний `httpbin.org` тест локальным mock server.
-8. Либо реализовать `Raw/Form/Text/Multipart/Auth/params/timeout/retry`, либо запретить неподдержанное в validator.
-9. Добавить README с install/run/examples/troubleshooting.
-10. Добавить CI: `cargo fmt --check`, `cargo clippy --workspace -- -D warnings`, `cargo test --workspace`, `npm ci`, `npm run build`.
+1. [x] Починить `load_config` в GUI, чтобы он сохранял suite в `AppState`.
+2. [x] Убрать `std::process::exit` из command-функций CLI и починить CLI-тесты.
+3. [x] Привести HTTP method parsing к user-friendly case-insensitive режиму.
+4. [x] Согласовать Tauri/Vite build output (`dist` vs `src-tauri/dist`) и добавить `beforeBuildCommand`.
+5. [x] Расширить `.gitignore`, убрать `node_modules` и generated artifacts из git.
+6. [x] Сделать clippy green с `cargo clippy --workspace -- -D warnings`.
+7. [x] Заменить внешний `httpbin.org` тест локальным mock server. - Оставляем как есть. Лучше проверять на реальном сервисе.
+8. [ ] Либо реализовать `Raw/Form/Text/Multipart/Auth/params/timeout/retry`, либо запретить неподдержанное в validator.
+   1. [ ] Raw
+   2. [ ] Multipart
+   3. [ ] validate_ssl
+   4. [ ] Custom assertions
+9. [ ] Добавить README с install/run/examples/troubleshooting.
+10. [ ] Добавить CI: `cargo fmt --check`, `cargo clippy --workspace -- -D warnings`, `cargo test --workspace`, `npm ci`, `npm run build`.
 
 ## Быстрый статус готовности
 

@@ -221,6 +221,12 @@ pub struct ResponseInfo {
     pub body: String,
 }
 
+impl Default for TestContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

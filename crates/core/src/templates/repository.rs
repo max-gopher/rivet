@@ -33,10 +33,10 @@ impl TemplateRepository {
         if self.cache_dir.exists() {
             let cached_path = self.cache_dir.join(format!("{}.yaml", template_name));
             if cached_path.exists() {
-                return Ok(fs::read_to_string(cached_path)
+                return fs::read_to_string(cached_path)
                     .map_err(|e| CoreError::IoError(
                         format!("Failed to read cached template '{}': {}", template_name, e)
-                    ))?);
+                    ));
             }
         }
 
@@ -86,7 +86,7 @@ impl TemplateRepository {
             .map_err(|e| CoreError::HttpError(e.to_string()))?;
 
         let index: serde_json::Value = serde_json::from_str(&response_text)
-            .map_err(|e| CoreError::JsonError(e))?;
+            .map_err(CoreError::JsonError)?;
 
         let mut templates = Vec::new();
 

@@ -118,17 +118,13 @@ impl JsonPathParser {
             for current in results {
                 match token {
                     PathToken::Field(ref field) => {  // ← Используем ref
-                        if let Some(obj) = current.as_object() {
-                            if let Some(value) = obj.get(field) {
-                                new_results.push(value);
-                            }
+                        if let Some(obj) = current.as_object() && let Some(value) = obj.get(field) {
+                            new_results.push(value);
                         }
                     }
                     PathToken::Index(index) => {
-                        if let Some(arr) = current.as_array() {
-                            if let Some(value) = arr.get(index) {
-                                new_results.push(value);
-                            }
+                        if let Some(arr) = current.as_array() && let Some(value) = arr.get(index) {
+                            new_results.push(value);
                         }
                     }
                     PathToken::Wildcard => {
