@@ -1,5 +1,7 @@
 //! Rivet GUI - Tauri приложение
 
+#![windows_subsystem = "windows"]
+
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
