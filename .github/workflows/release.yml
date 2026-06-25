@@ -49,6 +49,8 @@ jobs:
           cargo tauri build
 
       - name: Build CLI
+        env:
+          RUSTFLAGS: "-A dead_code"
         run: |
           cargo build --release -p rivet-cli
 
@@ -112,7 +114,10 @@ jobs:
           cd crates/gui
           cargo tauri build
 
-      - name: Build CLI
+      - name: Build CLI (with dead_code allowed)
+        shell: bash
+        env:
+          RUSTFLAGS: "-A dead_code"
         run: |
           cargo build --release -p rivet-cli
 
@@ -178,30 +183,53 @@ jobs:
           cd crates/gui
           cargo tauri build --target universal-apple-darwin
 
-      - name: Build CLI (Universal)
+      - name: Build CLI for Apple Silicon
+        env:
+          RUSTFLAGS: "-A dead_code"
         run: |
-          cargo build --release -p rivet-cli --target universal-apple-darwin
+          cargo build --release -p rivet-cli --target aarch64-apple-darwin
 
-      - name: Prepare macOS artifacts
+      - name: Build CLI for Intel
+        env:
+          RUSTFLAGS: "-A dead_code"
+        run: |
+          cargo build --release -p rivet-cli --target x86_64-apple-darwin
+
+      - name: Create Universal CLI Binary
         run: |
           mkdir -p release-artifacts
           
+          if [ -f "target/aarch64-apple-darwin/release/rivet-cli" ] && [ -f "target/x86_64-apple-darwin/release/rivet-cli" ]; then
+            lipo -create \
+              target/aarch64-apple-darwin/release/rivet-cli \
+              target/x86_64-apple-darwin/release/rivet-cli \
+              -output release-artifacts/rivet-cli_0.1.0_MacOS_universal
+            chmod +x release-artifacts/rivet-cli_0.1.0_MacOS_universal
+            echo "Universal CLI created successfully"
+          else
+            echo "CLI binaries not found, skipping universal build"
+            if [ -f "target/aarch64-apple-darwin/release/rivet-cli" ]; then
+              cp target/aarch64-apple-darwin/release/rivet-cli release-artifacts/rivet-cli_0.1.0_MacOS_AppleSilicon
+              chmod +x release-artifacts/rivet-cli_0.1.0_MacOS_AppleSilicon
+            fi
+            if [ -f "target/x86_64-apple-darwin/release/rivet-cli" ]; then
+              cp target/x86_64-apple-darwin/release/rivet-cli release-artifacts/rivet-cli_0.1.0_MacOS_Intel
+              chmod +x release-artifacts/rivet-cli_0.1.0_MacOS_Intel
+            fi
+          fi
+
+      - name: Prepare macOS GUI artifacts
+        run: |
           # GUI - Universal DMG
           if [ -f "target/universal-apple-darwin/release/bundle/dmg/rivet_0.1.0_universal.dmg" ]; then
             cp target/universal-apple-darwin/release/bundle/dmg/rivet_0.1.0_universal.dmg release-artifacts/rivet_0.1.0_MacOS.dmg
           fi
           
-          # GUI - Universal APP (правильная архивация)
+          # GUI - Universal APP
           if [ -d "target/universal-apple-darwin/release/bundle/macos/rivet.app" ]; then
             cd target/universal-apple-darwin/release/bundle/macos/
             zip -r ../../../../../release-artifacts/rivet_0.1.0_MacOS.app.zip rivet.app
             cd ../../../../../
-          fi
-          
-          # CLI - Universal binary
-          if [ -f "target/universal-apple-darwin/release/rivet-cli" ]; then
-            cp target/universal-apple-darwin/release/rivet-cli release-artifacts/rivet-cli_0.1.0_MacOS
-            chmod +x release-artifacts/rivet-cli_0.1.0_MacOS
           fi
           
           echo "=== macOS artifacts ==="
