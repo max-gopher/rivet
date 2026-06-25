@@ -43,15 +43,20 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Tauri app (Linux)
+      - name: Build Tauri app (Linux GUI)
         run: |
           cd crates/gui
           cargo tauri build
+
+      - name: Build CLI
+        run: |
+          cargo build --release -p rivet-cli
 
       - name: Prepare Linux artifacts
         run: |
           mkdir -p release-artifacts
           
+          # GUI
           if [ -f "target/release/bundle/deb/rivet_0.1.0_amd64.deb" ]; then
             cp target/release/bundle/deb/rivet_0.1.0_amd64.deb release-artifacts/rivet_0.1.0_Linux.deb
           fi
@@ -62,6 +67,12 @@ jobs:
           
           if [ -f "target/release/bundle/appimage/rivet_0.1.0_amd64.AppImage" ]; then
             cp target/release/bundle/appimage/rivet_0.1.0_amd64.AppImage release-artifacts/rivet_0.1.0_Linux.AppImage
+          fi
+          
+          # CLI
+          if [ -f "target/release/rivet-cli" ]; then
+            cp target/release/rivet-cli release-artifacts/rivet-cli_0.1.0_Linux
+            chmod +x release-artifacts/rivet-cli_0.1.0_Linux
           fi
           
           echo "=== Linux artifacts ==="
@@ -96,22 +107,32 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Tauri app (Windows)
+      - name: Build Tauri app (Windows GUI)
         run: |
           cd crates/gui
           cargo tauri build
+
+      - name: Build CLI
+        run: |
+          cargo build --release -p rivet-cli
 
       - name: Prepare Windows artifacts
         shell: bash
         run: |
           mkdir -p release-artifacts
           
+          # GUI
           if [ -f "target/release/bundle/msi/rivet_0.1.0_x64_en-US.msi" ]; then
             cp target/release/bundle/msi/rivet_0.1.0_x64_en-US.msi release-artifacts/rivet_0.1.0_Windows.msi
           fi
           
           if [ -f "target/release/bundle/nsis/rivet_0.1.0_x64-setup.exe" ]; then
             cp target/release/bundle/nsis/rivet_0.1.0_x64-setup.exe release-artifacts/rivet_0.1.0_Windows.exe
+          fi
+          
+          # CLI
+          if [ -f "target/release/rivet-cli.exe" ]; then
+            cp target/release/rivet-cli.exe release-artifacts/rivet-cli_0.1.0_Windows.exe
           fi
           
           echo "=== Windows artifacts ==="
@@ -152,25 +173,35 @@ jobs:
           npm install
           npm run build
 
-      - name: Build Tauri app (macOS Universal)
+      - name: Build Tauri app (macOS GUI Universal)
         run: |
           cd crates/gui
           cargo tauri build --target universal-apple-darwin
+
+      - name: Build CLI (Universal)
+        run: |
+          cargo build --release -p rivet-cli --target universal-apple-darwin
 
       - name: Prepare macOS artifacts
         run: |
           mkdir -p release-artifacts
           
-          # Universal DMG
+          # GUI - Universal DMG
           if [ -f "target/universal-apple-darwin/release/bundle/dmg/rivet_0.1.0_universal.dmg" ]; then
             cp target/universal-apple-darwin/release/bundle/dmg/rivet_0.1.0_universal.dmg release-artifacts/rivet_0.1.0_MacOS.dmg
           fi
           
-          # Universal APP (правильная архивация без лишних путей)
+          # GUI - Universal APP (правильная архивация)
           if [ -d "target/universal-apple-darwin/release/bundle/macos/rivet.app" ]; then
             cd target/universal-apple-darwin/release/bundle/macos/
             zip -r ../../../../../release-artifacts/rivet_0.1.0_MacOS.app.zip rivet.app
             cd ../../../../../
+          fi
+          
+          # CLI - Universal binary
+          if [ -f "target/universal-apple-darwin/release/rivet-cli" ]; then
+            cp target/universal-apple-darwin/release/rivet-cli release-artifacts/rivet-cli_0.1.0_MacOS
+            chmod +x release-artifacts/rivet-cli_0.1.0_MacOS
           fi
           
           echo "=== macOS artifacts ==="
