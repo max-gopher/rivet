@@ -30,7 +30,7 @@
     "category": "Development",
     "shortDescription": "REST API testing framework",
     "longDescription": "Rivet is a powerful REST API testing framework with both GUI and CLI interfaces. Write tests in YAML, execute them, and view detailed results.",
-    "targets": ["deb", "rpm", "appimage"],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -47,6 +47,18 @@
       "rpm": {
         "depends": []
       }
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.13",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "entitlements": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
     }
   },
   "plugins": {
