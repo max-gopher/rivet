@@ -51,7 +51,6 @@ jobs:
       - name: Prepare Linux artifacts
         run: |
           mkdir -p release-artifacts
-          # Копируем все установочные файлы
           find target/release/bundle -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} release-artifacts/ \;
           echo "=== Linux artifacts ==="
           ls -la release-artifacts/
@@ -61,6 +60,7 @@ jobs:
         with:
           name: rivet-linux
           path: release-artifacts/*
+          if-no-files-found: ignore
 
   build-windows:
     runs-on: windows-latest
@@ -93,7 +93,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-artifacts
-          # Копируем .msi и .exe
           find target/release/bundle -type f \( -name "*.msi" -o -name "*-setup.exe" \) -exec cp {} release-artifacts/ \;
           echo "=== Windows artifacts ==="
           ls -la release-artifacts/
@@ -103,6 +102,7 @@ jobs:
         with:
           name: rivet-windows
           path: release-artifacts/*
+          if-no-files-found: ignore
 
   build-macos:
     runs-on: macos-latest
@@ -122,6 +122,10 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli
 
+      - name: Install macOS dependencies
+        run: |
+          brew install create-dmg
+
       - name: Build frontend
         run: |
           cd crates/gui
@@ -136,14 +140,15 @@ jobs:
       - name: Prepare macOS artifacts
         run: |
           mkdir -p release-artifacts
-          # Копируем .dmg
-          find target/release/bundle -type f -name "*.dmg" -exec cp {} release-artifacts/ \;
           
-          # Архивируем .app если есть
-          APP_PATH=$(find target/release/bundle -name "*.app" -type d | head -1)
-          if [ -n "$APP_PATH" ]; then
-            echo "Found APP: $APP_PATH"
-            (cd "$(dirname "$APP_PATH")" && zip -r "../../../release-artifacts/$(basename "$APP_PATH").zip" "$(basename "$APP_PATH")")
+          # Копируем DMG
+          if ls target/release/bundle/dmg/*.dmg 1> /dev/null 2>&1; then
+            cp target/release/bundle/dmg/*.dmg release-artifacts/
+          fi
+          
+          # Опционально: архивируем APP
+          if [ -d "target/release/bundle/macos/rivet.app" ]; then
+            zip -r release-artifacts/rivet.app.zip target/release/bundle/macos/rivet.app
           fi
           
           echo "=== macOS artifacts ==="
@@ -154,26 +159,32 @@ jobs:
         with:
           name: rivet-macos
           path: release-artifacts/*
+          if-no-files-found: warn
 
   create-release:
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    if: always()
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          continue-on-error: true
 
       - name: List downloaded files
         run: |
           echo "=== All downloaded artifacts ==="
-          find artifacts -type f | sort
+          find artifacts -type f 2>/dev/null | sort || echo "No artifacts found"
+          echo ""
           echo "=== Linux ==="
           ls -la artifacts/rivet-linux/ 2>/dev/null || echo "No Linux artifacts"
+          echo ""
           echo "=== Windows ==="
           ls -la artifacts/rivet-windows/ 2>/dev/null || echo "No Windows artifacts"
+          echo ""
           echo "=== macOS ==="
           ls -la artifacts/rivet-macos/ 2>/dev/null || echo "No macOS artifacts"
 
