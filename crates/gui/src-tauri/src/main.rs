@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tauri::State;
+use std::io::Write;
 
 use rivet_core::{TestEngine, TestSuite};
 use rivet_core::parsers::config::load_and_validate_from_file;
@@ -62,12 +63,14 @@ pub struct ResponseInfo {
 /// Загружает конфиг из файла
 #[tauri::command]
 async fn load_config(path: String, state: State<'_, AppState>) -> Result<TestSuite, String> {
+    log_to_file(&format!("📂 load_config: {}", path));
     let suite = load_and_validate_from_file(&path)
         .map_err(|e| e.to_string())?;
 
     let mut config_guard = state.config.lock().await;
     *config_guard = Some(suite.clone());
 
+    log_to_file("✅ Config loaded and saved");
     Ok(suite)
 }
 
@@ -76,7 +79,7 @@ async fn load_config(path: String, state: State<'_, AppState>) -> Result<TestSui
 async fn run_tests(
     state: State<'_, AppState>,
 ) -> Result<TestRunResult, String> {
-    eprintln!("🔍 run_tests: start");
+    log_to_file("🔍 run_tests: start");
 
     let config = {
         let guard = state.config.lock().await;
@@ -84,15 +87,15 @@ async fn run_tests(
     };
 
     let suite = config.ok_or_else(|| "No config loaded".to_string())?;
-    eprintln!("🔍 run_tests: config loaded");
+    log_to_file(&format!("📂 Config loaded: {}", suite.name));
 
     let engine = TestEngine::with_http_config(suite.http.as_ref());
 
     let start = std::time::Instant::now();
-    println!("🔍 run_tests: starting engine.run_detailed");
+    log_to_file("🚀 Starting engine.run_detailed");
     let stage_results = engine.run_detailed(&suite).await
         .map_err(|e| e.to_string())?;
-    eprintln!("🔍 run_tests: engine.run_detailed finished");
+    log_to_file("✅ engine.run_detailed finished");
 
     let total = stage_results.len();
     let passed_count = stage_results.iter().filter(|r| r.passed).count();
@@ -147,7 +150,19 @@ fn get_info() -> serde_json::Value {
 }
 
 fn main() {
-    // Tauri сам найдет tauri.conf.json в корне пакета
+    std::panic::set_hook(Box::new(|panic_info| {
+        let msg = format!("💥 Panic: {:?}", panic_info);
+        eprintln!("{}", msg);
+
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("rivet_error.log")
+        {
+            let _ = writeln!(file, "{}", msg);
+        }
+    }));
+
     let context = tauri::generate_context!();
 
     tauri::Builder::default()
@@ -160,4 +175,15 @@ fn main() {
         ])
         .run(context)
         .expect("error while running tauri application");
+}
+
+fn log_to_file(msg: &str) {
+    eprintln!("{}", msg);
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("rivet_debug.log")
+    {
+        let _ = writeln!(file, "{}", msg);
+    }
 }
