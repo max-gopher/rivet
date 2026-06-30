@@ -154,6 +154,11 @@ fn main() {
         let msg = format!("💥 Panic: {:?}", panic_info);
         eprintln!("{}", msg);
 
+        // Дополнительная информация
+        if let Some(location) = panic_info.location() {
+            eprintln!("   at {}:{}", location.file(), location.line());
+        }
+
         if let Ok(mut file) = std::fs::OpenOptions::new()
             .create(true)
             .append(true)

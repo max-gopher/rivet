@@ -9,6 +9,7 @@
 
 use std::time::Duration;
 use std::collections::HashMap;
+use std::error::Error;
 use reqwest::{Client};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::fs::OpenOptions;
@@ -27,6 +28,12 @@ pub struct HttpClient {
 impl HttpClient {
     /// Создает новый HTTP клиент из конфига
     pub fn new(config: HttpConfig) -> Self {
+        log_http(&format!("🔧 HttpClient::new() called"));
+        log_http(&format!("   timeout: {}", config.timeout));
+        log_http(&format!("   retry_count: {}", config.retry_count));
+        log_http(&format!("   verify_ssl: {}", config.verify_ssl));
+        log_http(&format!("   user_agent: {}", config.user_agent));
+
         let mut builder = Client::builder()
             .timeout(Duration::from_secs(config.timeout))
             .user_agent(&config.user_agent)
@@ -35,7 +42,10 @@ impl HttpClient {
             .pool_idle_timeout(Duration::from_secs(90));
 
         if !config.verify_ssl {
+            log_http("⚠️ SSL verification DISABLED");
             builder = builder.danger_accept_invalid_certs(true);
+        } else {
+            log_http("✅ SSL verification ENABLED");
         }
 
         // HTTP/3 опционально
@@ -200,7 +210,34 @@ impl HttpClient {
                 r
             },
             Err(e) => {
+                // Подробно логируем ошибку
                 log_http(&format!("❌ execute_once: send failed: {}", e));
+
+                // Проверяем тип ошибки
+                if e.is_timeout() {
+                    log_http("   error type: timeout");
+                } else if e.is_connect() {
+                    log_http("   error type: connection");
+                } else if e.is_decode() {
+                    log_http("   error type: decode");
+                } else if e.is_status() {
+                    log_http("   error type: status");
+                } else if e.is_redirect() {
+                    log_http("   error type: redirect");
+                } else if e.is_builder() {
+                    log_http("   error type: builder");
+                } else if e.is_body() {
+                    log_http("   error type: body");
+                }
+
+                // Пытаемся получить источник ошибки
+                if let Some(source) = e.source() {
+                    log_http(&format!("   source: {:?}", source));
+                }
+
+                // Логируем URL, на котором упало
+                log_http(&format!("   failed url: {}", url));
+
                 return Err(CoreError::HttpError(e.to_string()));
             }
         };
