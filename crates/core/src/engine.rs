@@ -10,6 +10,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use crate::parsers::config::*;
 use crate::parsers::config::ConfigValidator;
@@ -48,30 +50,40 @@ impl TestEngine {
 
     /// Запускает выполнение тестов и возвращает детальные результаты
     pub async fn run_detailed(&self, suite: &TestSuite) -> CoreResult<Vec<StageResult>> {
+        log_engine("🔍 run_detailed: started");
+
         // 1. Валидация конфига
+        log_engine("🔍 run_detailed: validating config...");
         ConfigValidator::validate(suite)?;
+        log_engine("✅ run_detailed: validation passed");
 
         // 2. Инициализация переменных
+        log_engine("🔍 run_detailed: initializing variables...");
         {
             let mut context = self.context.lock().await;
             for (key, value) in &suite.variables {
                 context.set_variable(key.clone(), value.clone());
             }
         }
-
-        info!("Starting test suite: {}", suite.name);
+        log_engine("✅ run_detailed: variables initialized");
 
         // 3. Топологическая сортировка этапов
+        log_engine("🔍 run_detailed: topological sort...");
         let sorted_stages = self.topological_sort(&suite.stages)?;
+        log_engine(&format!("✅ run_detailed: sorted {} stages", sorted_stages.len()));
 
         // 4. Выполнение этапов
-        for stage in sorted_stages {
+        for (i, stage) in sorted_stages.iter().enumerate() {
+            log_engine(&format!("🔍 run_detailed: executing stage {}/{}: {}", i + 1, sorted_stages.len(), stage.name));
+
             if let Some(true) = stage.skip {
-                info!("Skipping stage: {}", stage.name);
+                log_engine(&format!("⏭️ run_detailed: skipping stage {}", stage.name));
                 continue;
             }
 
             if !self.check_dependencies(&stage).await {
+                log_engine(&format!("⚠️ run_detailed: stage {} dependencies not met", stage.name));
+
                 warn!("Stage '{}' dependencies not met", stage.name);
                 let result = StageResult::failure(
                     stage.name.clone(),
@@ -82,12 +94,17 @@ impl TestEngine {
                 continue;
             }
 
+            log_engine(&format!("🔄 run_detailed: executing stage {}", stage.name));
             let result = self.execute_stage(&stage).await?;
+            log_engine(&format!("✅ run_detailed: stage {} executed", stage.name));
+
             let mut context = self.context.lock().await;
             context.stage_completed(stage.name.clone(), result);
+            log_engine(&format!("✅ run_detailed: stage {} completed", stage.name));
         }
 
         // Собираем и возвращаем все результаты
+        log_engine("🔍 run_detailed: collecting results...");
         let context = self.context.lock().await;
         let results: Vec<StageResult> = context.stage_results.values().cloned().collect();
 
@@ -96,6 +113,7 @@ impl TestEngine {
             results.len()
         );
 
+        log_engine(&format!("✅ run_detailed: collected {} results", results.len()));
         Ok(results)
     }
 
@@ -110,10 +128,12 @@ impl TestEngine {
         let start = std::time::Instant::now();
 
         // Строим HTTP запрос (контекст освобождается после блока)
+        log_engine(&format!("🔍 execute_stage: building HTTP request for '{}'", stage.name));
         let http_request = {
             let context = self.context.lock().await;
             self.request_builder.build(stage, &context.variables)?
         };
+        log_engine(&format!("✅ execute_stage: HTTP request built for '{}'", stage.name));
 
         // --- Сохраняем информацию о запросе ---
         let request_info = RequestInfo {
@@ -124,7 +144,9 @@ impl TestEngine {
             body: http_request.body.clone(),
         };
 
+        log_engine(&format!("📤 execute_stage: sending request for '{}'", stage.name));
         let response = self.client.execute_with_retry(http_request).await?;
+        log_engine(&format!("✅ execute_stage: response received for '{}'", stage.name));
 
         // --- Сохраняем информацию об ответе ---
         let response_info = ResponseInfo {
@@ -346,6 +368,18 @@ impl TestEngine {
         sorted.push(stage.clone());
 
         Ok(())
+    }
+}
+
+/// Логирование в файл (для отладки на Windows)
+fn log_engine(msg: &str) {
+    eprintln!("{}", msg);
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("rivet_engine.log")
+    {
+        let _ = writeln!(file, "{}", msg);
     }
 }
 
