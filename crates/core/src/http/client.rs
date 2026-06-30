@@ -11,6 +11,8 @@ use std::time::Duration;
 use std::collections::HashMap;
 use reqwest::{Client};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use crate::parsers::config::HttpConfig;
 use crate::error::{CoreError, CoreResult};
@@ -63,10 +65,17 @@ impl HttpClient {
 
     /// Выполняет HTTP запрос с повторными попытками
     pub async fn execute_with_retry(&self, request: HttpRequest) -> CoreResult<HttpResponse> {
+        log_http(&format!("🔄 execute_with_retry: START for {} {}", request.method, request.url));
+        log_http(&format!("   headers: {:?}", request.headers));
+        log_http(&format!("   params: {:?}", request.params));
+        log_http(&format!("   body: {:?}", request.body));
+        log_http(&format!("   form_data: {:?}", request.form_data));
+
         let mut last_error = None;
         let mut delay = self.config.retry_delay;
 
         for attempt in 0..=self.config.retry_count {
+            log_http(&format!("   attempt {}/{}", attempt + 1, self.config.retry_count + 1));
             if attempt > 0 {
                 tracing::debug!(
                 "Retry attempt {}/{} for {} {}",
@@ -85,6 +94,7 @@ impl HttpClient {
 
             match self.execute_once(&request).await {
                 Ok(response) => {
+                    log_http(&format!("✅ execute_with_retry: response received, status: {}", response.status));
                     let is_server_error = response.status >= 500 && response.status < 600;
 
                     if is_server_error && attempt < self.config.retry_count {
@@ -97,6 +107,7 @@ impl HttpClient {
                     return Ok(response);
                 }
                 Err(e) => {
+                    log_http(&format!("❌ execute_with_retry: attempt {} failed: {}", attempt + 1, e));
                     last_error = Some(e);
                     if attempt < self.config.retry_count {
                         tracing::warn!(
@@ -109,6 +120,7 @@ impl HttpClient {
         }
 
         // Возвращаем ошибку с текстом
+        log_http("❌ execute_with_retry: all attempts failed");
         Err(CoreError::HttpError(
             format!(
                 "Request failed after {} retries: {:?}",
@@ -120,6 +132,12 @@ impl HttpClient {
 
     /// Выполняет запрос один раз (без retry)
     async fn execute_once(&self, request: &HttpRequest) -> CoreResult<HttpResponse> {
+        log_http(&format!("📤 execute_once: sending {} {}", request.method, request.url));
+        log_http(&format!("   headers: {:?}", request.headers));
+        log_http(&format!("   params: {:?}", request.params));
+        log_http(&format!("   body: {:?}", request.body));
+        log_http(&format!("   form_data: {:?}", request.form_data));
+
         // Добавляем query параметры к URL
         let mut url = request.url.clone();
         if !request.params.is_empty() {
@@ -135,43 +153,73 @@ impl HttpClient {
             }
         }
 
-        let mut request_builder = self.client.request(
-            reqwest::Method::from_bytes(request.method.as_bytes())
-                .map_err(|e| CoreError::HttpError(e.to_string()))?,
-            &url,
-        );
+        log_http(&format!("   full url: {}", url));
+
+        // Строим запрос
+        let method = match reqwest::Method::from_bytes(request.method.as_bytes()) {
+            Ok(m) => m,
+            Err(e) => {
+                log_http(&format!("❌ execute_once: invalid method: {}", e));
+                return Err(CoreError::HttpError(e.to_string()));
+            }
+        };
+        let mut request_builder = self.client.request(method, &url);
 
         for (name, value) in &request.headers {
-            let header_name = HeaderName::from_bytes(name.as_bytes())
-                .map_err(|e| CoreError::HttpError(e.to_string()))?;
-            let header_value = HeaderValue::from_str(value)
-                .map_err(|e| CoreError::HttpError(e.to_string()))?;
-            request_builder = request_builder.header(header_name, header_value);
+            match HeaderName::from_bytes(name.as_bytes()) {
+                Ok(n) => {
+                    match HeaderValue::from_str(value) {
+                        Ok(v) => { request_builder = request_builder.header(n, v); },
+                        Err(e) => {
+                            log_http(&format!("❌ execute_once: invalid header value '{}': {}", name, e));
+                            return Err(CoreError::HttpError(e.to_string()));
+                        }
+                    }
+                },
+                Err(e) => {
+                    log_http(&format!("❌ execute_once: invalid header name: {}", e));
+                    return Err(CoreError::HttpError(e.to_string()));
+                }
+            }
         }
 
         if let Some(body) = &request.body {
-            // Проверяем, что это Form
             if let Some(form_data) = request.form_data.as_ref() {
-                // Отправляем как форму
+                log_http(&format!("   sending as form: {:?}", form_data));
                 request_builder = request_builder.form(form_data);
             } else {
-                // Отправляем как JSON
+                log_http(&format!("   sending as JSON: {:?}", body));
                 request_builder = request_builder.json(body);
             }
         }
 
-        let response = request_builder
-            .send()
-            .await
-            .map_err(|e| CoreError::HttpError(e.to_string()))?;
+        log_http(&format!("   sending request..."));
+        let response = match request_builder.send().await {
+            Ok(r) => {
+                log_http(&format!("✅ execute_once: response received, status: {}", r.status()));
+                r
+            },
+            Err(e) => {
+                log_http(&format!("❌ execute_once: send failed: {}", e));
+                return Err(CoreError::HttpError(e.to_string()));
+            }
+        };
 
         let status = response.status();
-        let headers_map = response.headers().clone();  // ← Сохраняем оригинал
+        let headers_map = response.headers().clone();
         let headers = headers_to_hashmap(&headers_map);
-        let body = response
-            .text()
-            .await
-            .map_err(|e| CoreError::HttpError(e.to_string()))?;
+
+        log_http(&format!("   reading body..."));
+        let body = match response.text().await {
+            Ok(t) => {
+                log_http(&format!("   body length: {} bytes", t.len()));
+                t
+            },
+            Err(e) => {
+                log_http(&format!("❌ execute_once: failed to read body: {}", e));
+                return Err(CoreError::HttpError(e.to_string()));
+            }
+        };
 
         let json_body = serde_json::from_str(&body)
             .unwrap_or(serde_json::Value::Null);
@@ -236,6 +284,17 @@ fn headers_to_hashmap(headers: &HeaderMap) -> HashMap<String, String> {
         }
     }
     map
+}
+
+fn log_http(msg: &str) {
+    eprintln!("{}", msg);
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("rivet_http.log")
+    {
+        let _ = writeln!(file, "{}", msg);
+    }
 }
 
 #[cfg(test)]
