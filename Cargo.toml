@@ -35,7 +35,7 @@ futures = "0.3"
 async-trait = "0.1"
 
 # HTTP
-reqwest = { version = "0.12", features = ["json", "stream", "cookies"] }
+reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "json", "stream", "cookies", "rustls-tls"] }
 
 # Парсинг - используем свою реализацию!
 # jsonpath = "0.4"          # ← 0.4, не 0.5!
