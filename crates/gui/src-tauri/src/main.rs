@@ -6,6 +6,7 @@
 )]
 
 use serde::{Deserialize, Serialize};
+use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
@@ -71,7 +72,13 @@ pub struct ResponseInfo {
 #[tauri::command]
 async fn load_config(path: String, state: State<'_, AppState>) -> Result<TestSuite, String> {
     log_to_file(&format!("📂 load_config: {}", path));
-    let suite = load_and_validate_from_file(&path).map_err(|e| e.to_string())?;
+    let suite = match load_and_validate_from_file(&path) {
+        Ok(suite) => suite,
+        Err(err) => {
+            log_to_file(&format!("❌ load_config failed: {}", err));
+            return Err(err.to_string());
+        }
+    };
 
     let mut config_guard = state.config.lock().await;
     *config_guard = Some(suite.clone());
@@ -97,10 +104,13 @@ async fn run_tests(state: State<'_, AppState>) -> Result<TestRunResult, String> 
 
     let start = std::time::Instant::now();
     log_to_file("🚀 Starting engine.run_detailed");
-    let stage_results = engine
-        .run_detailed(&suite)
-        .await
-        .map_err(|e| e.to_string())?;
+    let stage_results = match engine.run_detailed(&suite).await {
+        Ok(stage_results) => stage_results,
+        Err(err) => {
+            log_to_file(&format!("❌ engine.run_detailed failed: {}", err));
+            return Err(err.to_string());
+        }
+    };
     log_to_file("✅ engine.run_detailed finished");
 
     let total = stage_results.len();
@@ -142,8 +152,21 @@ async fn run_tests(state: State<'_, AppState>) -> Result<TestRunResult, String> 
 
     {
         let mut guard = state.results.lock().await;
-        *guard = Some(serde_json::to_value(&result).unwrap());
+        match serde_json::to_value(&result) {
+            Ok(value) => {
+                *guard = Some(value);
+            }
+            Err(err) => {
+                log_to_file(&format!("❌ failed to serialize test result: {}", err));
+                return Err(err.to_string());
+            }
+        }
     }
+
+    log_to_file(&format!(
+        "✅ run_tests finished: total={}, passed={}, failed={}",
+        result.total, result.passed_count, result.failed_count
+    ));
 
     Ok(result)
 }
@@ -167,11 +190,14 @@ fn main() {
         if let Some(location) = panic_info.location() {
             log_to_file(&format!("   at {}:{}", location.file(), location.line()));
         }
+
+        log_to_file(&format!("Backtrace:\n{}", Backtrace::force_capture()));
+        wait_for_enter("panic");
     }));
 
     let context = tauri::generate_context!();
 
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
@@ -180,16 +206,24 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![load_config, run_tests, get_info,])
-        .run(context)
-        .expect("error while running tauri application");
+        .run(context);
+
+    if let Err(err) = result {
+        log_to_file(&format!(
+            "❌ error while running tauri application: {}",
+            err
+        ));
+        wait_for_enter("Tauri runtime error");
+    }
 }
 
 fn init_log_file(app: &tauri::App) {
-    let log_dir = app
-        .path()
-        .app_log_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .unwrap_or_else(|_| std::env::temp_dir().join("rivet"));
+    let log_dir = diagnostic_log_dir().unwrap_or_else(|| {
+        app.path()
+            .app_log_dir()
+            .or_else(|_| app.path().app_data_dir())
+            .unwrap_or_else(|_| std::env::temp_dir().join("rivet"))
+    });
 
     if let Err(err) = std::fs::create_dir_all(&log_dir) {
         eprintln!(
@@ -201,6 +235,18 @@ fn init_log_file(app: &tauri::App) {
     }
 
     let _ = LOG_FILE_PATH.set(log_dir.join("rivet.log"));
+}
+
+#[cfg(all(target_os = "windows", feature = "dev-console"))]
+fn diagnostic_log_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|parent| parent.to_path_buf()))
+}
+
+#[cfg(not(all(target_os = "windows", feature = "dev-console")))]
+fn diagnostic_log_dir() -> Option<PathBuf> {
+    None
 }
 
 fn log_to_file(msg: &str) {
@@ -219,3 +265,16 @@ fn log_to_file(msg: &str) {
         let _ = writeln!(file, "{}", msg);
     }
 }
+
+#[cfg(all(target_os = "windows", feature = "dev-console"))]
+fn wait_for_enter(reason: &str) {
+    eprintln!();
+    eprintln!("Rivet diagnostic console stopped after {}.", reason);
+    eprintln!("Press Enter to close this window...");
+
+    let mut input = String::new();
+    let _ = std::io::stdin().read_line(&mut input);
+}
+
+#[cfg(not(all(target_os = "windows", feature = "dev-console")))]
+fn wait_for_enter(_reason: &str) {}
