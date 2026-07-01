@@ -114,6 +114,9 @@ jobs:
           cd crates/gui
           cargo tauri build
 
+      - name: Build Windows diagnostic GUI exe
+        run: cargo build --release -p rivet-gui --features dev-console
+
       - name: Build CLI
         shell: bash
         env:
@@ -133,6 +136,10 @@ jobs:
           
           if [ -f "target/release/bundle/nsis/rivet_0.1.0_x64-setup.exe" ]; then
             cp target/release/bundle/nsis/rivet_0.1.0_x64-setup.exe release-artifacts/rivet_0.1.0_Windows.exe
+          fi
+
+          if [ -f "target/release/rivet-gui.exe" ]; then
+            cp target/release/rivet-gui.exe release-artifacts/rivet-gui_0.1.0_Windows_diagnostic-console.exe
           fi
           
           # CLI
