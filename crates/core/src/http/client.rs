@@ -7,27 +7,33 @@
 //! - Настраиваемые заголовки
 //! - Cookies
 
-use std::time::Duration;
+use reqwest::Client;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::collections::HashMap;
 use std::error::Error;
-use reqwest::{Client};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::time::Duration;
 
-use crate::parsers::config::HttpConfig;
 use crate::error::{CoreError, CoreResult};
+use crate::parsers::config::HttpConfig;
+
+fn install_tls_crypto_provider() {
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+}
 
 /// HTTP клиент
 #[derive(Debug, Clone)]
 pub struct HttpClient {
     client: Client,
-    config: HttpConfig,  // ← Теперь используем HttpConfig напрямую
+    config: HttpConfig, // ← Теперь используем HttpConfig напрямую
 }
 
 impl HttpClient {
     /// Создает новый HTTP клиент из конфига
     pub fn new(config: HttpConfig) -> Self {
+        install_tls_crypto_provider();
+
         log_http(&format!("🔧 HttpClient::new() called"));
         log_http(&format!("   timeout: {}", config.timeout));
         log_http(&format!("   retry_count: {}", config.retry_count));
@@ -54,8 +60,7 @@ impl HttpClient {
             builder = builder.http3_prior_knowledge();
         }
 
-        let client = builder.build()
-            .expect("Failed to build HTTP client");
+        let client = builder.build().expect("Failed to build HTTP client");
 
         HttpClient { client, config }
     }
@@ -75,7 +80,10 @@ impl HttpClient {
 
     /// Выполняет HTTP запрос с повторными попытками
     pub async fn execute_with_retry(&self, request: HttpRequest) -> CoreResult<HttpResponse> {
-        log_http(&format!("🔄 execute_with_retry: START for {} {}", request.method, request.url));
+        log_http(&format!(
+            "🔄 execute_with_retry: START for {} {}",
+            request.method, request.url
+        ));
         log_http(&format!("   headers: {:?}", request.headers));
         log_http(&format!("   params: {:?}", request.params));
         log_http(&format!("   body: {:?}", request.body));
@@ -85,15 +93,19 @@ impl HttpClient {
         let mut delay = self.config.retry_delay;
 
         for attempt in 0..=self.config.retry_count {
-            log_http(&format!("   attempt {}/{}", attempt + 1, self.config.retry_count + 1));
+            log_http(&format!(
+                "   attempt {}/{}",
+                attempt + 1,
+                self.config.retry_count + 1
+            ));
             if attempt > 0 {
                 tracing::debug!(
-                "Retry attempt {}/{} for {} {}",
-                attempt,
-                self.config.retry_count,
-                request.method,
-                request.url
-            );
+                    "Retry attempt {}/{} for {} {}",
+                    attempt,
+                    self.config.retry_count,
+                    request.method,
+                    request.url
+                );
 
                 tokio::time::sleep(Duration::from_millis(delay)).await;
 
@@ -104,26 +116,30 @@ impl HttpClient {
 
             match self.execute_once(&request).await {
                 Ok(response) => {
-                    log_http(&format!("✅ execute_with_retry: response received, status: {}", response.status));
+                    log_http(&format!(
+                        "✅ execute_with_retry: response received, status: {}",
+                        response.status
+                    ));
                     let is_server_error = response.status >= 500 && response.status < 600;
 
                     if is_server_error && attempt < self.config.retry_count {
-                        tracing::warn!(
-                        "Server error {}, retrying...",
-                        response.status
-                    );
+                        tracing::warn!("Server error {}, retrying...", response.status);
                         continue;
                     }
                     return Ok(response);
                 }
                 Err(e) => {
-                    log_http(&format!("❌ execute_with_retry: attempt {} failed: {}", attempt + 1, e));
+                    log_http(&format!(
+                        "❌ execute_with_retry: attempt {} failed: {}",
+                        attempt + 1,
+                        e
+                    ));
                     last_error = Some(e);
                     if attempt < self.config.retry_count {
                         tracing::warn!(
-                        "Request failed: {}, retrying...",
-                        last_error.as_ref().unwrap()
-                    );
+                            "Request failed: {}, retrying...",
+                            last_error.as_ref().unwrap()
+                        );
                     }
                 }
             }
@@ -131,18 +147,18 @@ impl HttpClient {
 
         // Возвращаем ошибку с текстом
         log_http("❌ execute_with_retry: all attempts failed");
-        Err(CoreError::HttpError(
-            format!(
-                "Request failed after {} retries: {:?}",
-                self.config.retry_count,
-                last_error
-            )
-        ))
+        Err(CoreError::HttpError(format!(
+            "Request failed after {} retries: {:?}",
+            self.config.retry_count, last_error
+        )))
     }
 
     /// Выполняет запрос один раз (без retry)
     async fn execute_once(&self, request: &HttpRequest) -> CoreResult<HttpResponse> {
-        log_http(&format!("📤 execute_once: sending {} {}", request.method, request.url));
+        log_http(&format!(
+            "📤 execute_once: sending {} {}",
+            request.method, request.url
+        ));
         log_http(&format!("   headers: {:?}", request.headers));
         log_http(&format!("   params: {:?}", request.params));
         log_http(&format!("   body: {:?}", request.body));
@@ -177,13 +193,16 @@ impl HttpClient {
 
         for (name, value) in &request.headers {
             match HeaderName::from_bytes(name.as_bytes()) {
-                Ok(n) => {
-                    match HeaderValue::from_str(value) {
-                        Ok(v) => { request_builder = request_builder.header(n, v); },
-                        Err(e) => {
-                            log_http(&format!("❌ execute_once: invalid header value '{}': {}", name, e));
-                            return Err(CoreError::HttpError(e.to_string()));
-                        }
+                Ok(n) => match HeaderValue::from_str(value) {
+                    Ok(v) => {
+                        request_builder = request_builder.header(n, v);
+                    }
+                    Err(e) => {
+                        log_http(&format!(
+                            "❌ execute_once: invalid header value '{}': {}",
+                            name, e
+                        ));
+                        return Err(CoreError::HttpError(e.to_string()));
                     }
                 },
                 Err(e) => {
@@ -206,9 +225,12 @@ impl HttpClient {
         log_http(&format!("   sending request..."));
         let response = match request_builder.send().await {
             Ok(r) => {
-                log_http(&format!("✅ execute_once: response received, status: {}", r.status()));
+                log_http(&format!(
+                    "✅ execute_once: response received, status: {}",
+                    r.status()
+                ));
                 r
-            },
+            }
             Err(e) => {
                 // Подробно логируем ошибку
                 log_http(&format!("❌ execute_once: send failed: {}", e));
@@ -251,15 +273,14 @@ impl HttpClient {
             Ok(t) => {
                 log_http(&format!("   body length: {} bytes", t.len()));
                 t
-            },
+            }
             Err(e) => {
                 log_http(&format!("❌ execute_once: failed to read body: {}", e));
                 return Err(CoreError::HttpError(e.to_string()));
             }
         };
 
-        let json_body = serde_json::from_str(&body)
-            .unwrap_or(serde_json::Value::Null);
+        let json_body = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
 
         Ok(HttpResponse {
             status: status.as_u16(),
@@ -285,7 +306,7 @@ pub struct HttpRequest {
     pub headers: HashMap<String, String>,
     pub params: HashMap<String, String>,
     pub body: Option<serde_json::Value>,
-    pub form_data: Option<HashMap<String, String>>
+    pub form_data: Option<HashMap<String, String>>,
 }
 
 /// HTTP ответ
@@ -353,7 +374,7 @@ mod tests {
             params: HashMap::new(),
             headers: HashMap::new(),
             body: None,
-            form_data: None
+            form_data: None,
         };
 
         let client = HttpClient::default();

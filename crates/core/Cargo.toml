@@ -26,6 +26,7 @@ async-trait = { workspace = true }
 
 # HTTP
 reqwest = { workspace = true }
+rustls = { workspace = true }
 
 # Парсинг - используем свою реализацию!
 # jsonpath = { workspace = true }
