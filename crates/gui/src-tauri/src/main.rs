@@ -1,16 +1,23 @@
 //! Rivet GUI - Tauri приложение
 
-#![windows_subsystem = "windows"]
+#![cfg_attr(
+    all(target_os = "windows", not(feature = "dev-console")),
+    windows_subsystem = "windows"
+)]
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tauri::State;
+use std::collections::HashMap;
 use std::io::Write;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::OnceLock;
+use tauri::{Manager, State};
+use tokio::sync::Mutex;
 
-use rivet_core::{TestEngine, TestSuite};
 use rivet_core::parsers::config::load_and_validate_from_file;
+use rivet_core::{TestEngine, TestSuite};
+
+static LOG_FILE_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 /// Состояние приложения
 #[derive(Default)]
@@ -39,7 +46,7 @@ pub struct StageResult {
     pub status: Option<u16>,
     pub error: Option<String>,
     pub request: RequestInfo,
-    pub response: ResponseInfo
+    pub response: ResponseInfo,
 }
 
 /// Информация о запросе
@@ -64,8 +71,7 @@ pub struct ResponseInfo {
 #[tauri::command]
 async fn load_config(path: String, state: State<'_, AppState>) -> Result<TestSuite, String> {
     log_to_file(&format!("📂 load_config: {}", path));
-    let suite = load_and_validate_from_file(&path)
-        .map_err(|e| e.to_string())?;
+    let suite = load_and_validate_from_file(&path).map_err(|e| e.to_string())?;
 
     let mut config_guard = state.config.lock().await;
     *config_guard = Some(suite.clone());
@@ -76,9 +82,7 @@ async fn load_config(path: String, state: State<'_, AppState>) -> Result<TestSui
 
 /// Запускает тесты
 #[tauri::command]
-async fn run_tests(
-    state: State<'_, AppState>,
-) -> Result<TestRunResult, String> {
+async fn run_tests(state: State<'_, AppState>) -> Result<TestRunResult, String> {
     log_to_file("🔍 run_tests: start");
 
     let config = {
@@ -93,7 +97,9 @@ async fn run_tests(
 
     let start = std::time::Instant::now();
     log_to_file("🚀 Starting engine.run_detailed");
-    let stage_results = engine.run_detailed(&suite).await
+    let stage_results = engine
+        .run_detailed(&suite)
+        .await
         .map_err(|e| e.to_string())?;
     log_to_file("✅ engine.run_detailed finished");
 
@@ -110,25 +116,28 @@ async fn run_tests(
         passed_count,
         failed_count,
         duration_ms: duration.as_millis(),
-        stages: stage_results.into_iter().map(|r| StageResult {
-            name: r.name,
-            passed: r.passed,
-            duration_ms: r.duration.as_millis(),
-            status: r.status,
-            error: r.error,
-            request: RequestInfo {
-                method: r.request.method,
-                url: r.request.url,
-                headers: r.request.headers,
-                params: r.request.params,
-                body: r.request.body,
-            },
-            response: ResponseInfo {
-                status: r.response.status,
-                headers: r.response.headers,
-                body: r.response.body,
-            }
-        }).collect(),
+        stages: stage_results
+            .into_iter()
+            .map(|r| StageResult {
+                name: r.name,
+                passed: r.passed,
+                duration_ms: r.duration.as_millis(),
+                status: r.status,
+                error: r.error,
+                request: RequestInfo {
+                    method: r.request.method,
+                    url: r.request.url,
+                    headers: r.request.headers,
+                    params: r.request.params,
+                    body: r.request.body,
+                },
+                response: ResponseInfo {
+                    status: r.response.status,
+                    headers: r.response.headers,
+                    body: r.response.body,
+                },
+            })
+            .collect(),
     };
 
     {
@@ -152,19 +161,11 @@ fn get_info() -> serde_json::Value {
 fn main() {
     std::panic::set_hook(Box::new(|panic_info| {
         let msg = format!("💥 Panic: {:?}", panic_info);
-        eprintln!("{}", msg);
+        log_to_file(&msg);
 
         // Дополнительная информация
         if let Some(location) = panic_info.location() {
-            eprintln!("   at {}:{}", location.file(), location.line());
-        }
-
-        if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("rivet_error.log")
-        {
-            let _ = writeln!(file, "{}", msg);
+            log_to_file(&format!("   at {}:{}", location.file(), location.line()));
         }
     }));
 
@@ -173,21 +174,47 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![
-            load_config,
-            run_tests,
-            get_info,
-        ])
+        .setup(|app| {
+            init_log_file(app);
+            log_to_file("Rivet GUI started");
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![load_config, run_tests, get_info,])
         .run(context)
         .expect("error while running tauri application");
 }
 
+fn init_log_file(app: &tauri::App) {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .unwrap_or_else(|_| std::env::temp_dir().join("rivet"));
+
+    if let Err(err) = std::fs::create_dir_all(&log_dir) {
+        eprintln!(
+            "Failed to create log directory {}: {}",
+            log_dir.display(),
+            err
+        );
+        return;
+    }
+
+    let _ = LOG_FILE_PATH.set(log_dir.join("rivet.log"));
+}
+
 fn log_to_file(msg: &str) {
     eprintln!("{}", msg);
+
+    let path = LOG_FILE_PATH
+        .get()
+        .cloned()
+        .unwrap_or_else(|| std::env::temp_dir().join("rivet_error.log"));
+
     if let Ok(mut file) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open("rivet_debug.log")
+        .open(path)
     {
         let _ = writeln!(file, "{}", msg);
     }
